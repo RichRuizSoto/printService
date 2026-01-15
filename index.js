@@ -1,12 +1,14 @@
+require("dotenv").config();
+
 const io = require("socket.io-client");
 const net = require("net");
 
-const BACKEND_URL = "https://snapserveconnect.com";
-const RESTAURANTE_ID = 5;
-const API_KEY = "super-secreta-123";
+const BACKEND_URL = process.env.BACKEND_URL;
+const RESTAURANTE_ID = Number(process.env.RESTAURANTE_ID);
+const API_KEY = process.env.API_KEY;
 
-const PRINTER_IP = "192.168.1.50";
-const PRINTER_PORT = 9100;
+const PRINTER_IP = process.env.PRINTER_IP;
+const PRINTER_PORT = Number(process.env.PRINTER_PORT);
 
 console.log("🧾 Printer Service iniciado");
 console.log("🔧 Configuración:", {
@@ -39,11 +41,6 @@ socket.on("connect_error", (err) => {
 socket.on("printPedido", (pedido) => {
   console.log("🖨️ Pedido recibido para impresión");
   console.log(`🧾 Pedido #${pedido.numero_orden}`);
-  console.log("📦 Productos:");
-
-  pedido.productos.forEach((p, i) => {
-    console.log(`${i + 1}. ${p.cantidad}x ${p.nombre}`);
-  });
 
   imprimirPedido(pedido);
 });
@@ -59,8 +56,6 @@ function imprimirPedido(pedido) {
   client.setTimeout(5000);
 
   client.connect(PRINTER_PORT, PRINTER_IP, () => {
-    console.log("✅ Conexión TCP establecida");
-
     let texto = "";
 
     texto += "\x1B\x40";
@@ -68,13 +63,10 @@ function imprimirPedido(pedido) {
     texto += `PEDIDO #${pedido.numero_orden}\n`;
     texto += `${pedido.restaurante}\n`;
     texto += `${pedido.tipo_servicio.toUpperCase()}\n\n`;
-
     texto += "\x1B\x61\x00";
 
     pedido.productos.forEach((p) => {
-      const nombre = p.nombre || "Producto sin nombre";
-      texto += `${p.cantidad}x ${nombre}\n`;
-
+      texto += `${p.cantidad}x ${p.nombre}\n`;
       if (Array.isArray(p.extras)) {
         p.extras.forEach((e) => {
           texto += `  + ${e.nombre}\n`;
@@ -90,24 +82,11 @@ function imprimirPedido(pedido) {
     texto += `\nTOTAL: ₡${pedido.total}\n\n`;
     texto += "\x1D\x56\x00";
 
-    console.log("📤 Enviando datos a la impresora");
-
-    client.write(texto, () => {
-      console.log("✅ Impresión enviada");
-      client.end();
-    });
+    client.write(texto, () => client.end());
   });
 
-  client.on("timeout", () => {
-    console.error("⏱️ Timeout de conexión con la impresora");
-    client.destroy();
-  });
-
-  client.on("error", (err) => {
-    console.error("❌ Error TCP impresión:", err.message, err.code);
-  });
-
-  client.on("close", () => {
-    console.log("🔌 Conexión cerrada");
-  });
+  client.on("timeout", () => client.destroy());
+  client.on("error", (err) =>
+    console.error("❌ Error TCP impresión:", err.message)
+  );
 }
