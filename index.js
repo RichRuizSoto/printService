@@ -115,7 +115,7 @@ function imprimirPedido(pedido) {
     } else {
       texto += limpiarTexto(pedido.tipo_servicio) + "\n";
     }
-texto += limpiarTexto(
+texto += 
   new Date().toLocaleString("es-CR", {
     timeZone: "America/Costa_Rica",
     year: "numeric",
@@ -125,7 +125,7 @@ texto += limpiarTexto(
     minute: "2-digit",
     second: "2-digit",
   })
-) + "\n";
++ "\n";
 
 
     texto += "-----------------------------\n";
