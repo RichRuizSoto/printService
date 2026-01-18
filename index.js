@@ -147,11 +147,12 @@ function imprimirPedido(pedido) {
 
     // Pie de página
     texto += "\x1B\x61\x01"; // Centrado
-    texto += "¡GRACIAS POR SU COMPRA!\n\n\n";
+    texto += "GRACIAS POR SU COMPRA!\n\n\n";
+    texto += " ";
 
     // Corte de papel
-    texto += "\x1D\x56\x00";
-    texto += "\x1D\x56\x01";
+    // texto += "\x1D\x56\x00";
+    // texto += "\x1D\x56\x01";
     texto += "\x1D\x56\x42\x00";
 
     console.log("📤 Enviando datos a la impresora...");
