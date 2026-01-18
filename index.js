@@ -136,7 +136,7 @@ function imprimirPedido(pedido) {
     texto += "-----------------------------\n";
 
     pedido.productos.forEach((p) => {
-      texto += `${p.cantidad}x ${limpiarTexto(p.nombre)}\n`;
+      texto += ` ${limpiarTexto(p.nombre)}\n`;
 
       if (Array.isArray(p.extras) && p.extras.length) {
         p.extras.forEach((e) => {
