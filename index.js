@@ -104,42 +104,59 @@ function imprimirPedido(pedido) {
 
     let texto = "";
 
-    texto += "\x1B\x40";
-    texto += "\x1B\x61\x01";
-    texto += `PEDIDO #${pedido.numero_orden}\n`;
+    // Inicializar impresora
+    texto += "\x1B\x40"; // Reset
+    texto += "\x1B\x61\x01"; // Centrado
+
+    // Encabezado
     texto += `${pedido.restaurante}\n`;
-    texto += `${pedido.tipo_servicio.toUpperCase()}\n\n`;
-    texto += "\x1B\x61\x00";
+    texto += `PEDIDO #${pedido.numero_orden}\n`;
+    texto += `${pedido.tipo_servicio.toUpperCase()}\n`;
+    texto += `${new Date().toLocaleString()}\n`;
+    texto += "-----------------------------\n";
+    texto += "\x1B\x61\x00"; // Alinear a la izquierda
 
-    pedido.productos.forEach((p, index) => {
-      console.log(
-        `📄 Producto ${index + 1}: ${p.cantidad}x ${p.nombre}`
-      );
-
-      texto += `${p.cantidad}x ${p.nombre}\n`;
+    // Productos
+    pedido.productos.forEach((p) => {
+      const linea = `${p.cantidad}x ${p.nombre}`;
+      texto += linea + "\n";
 
       if (Array.isArray(p.extras)) {
         p.extras.forEach((e) => {
-          console.log(`   ➕ Extra: ${e.nombre}`);
-          texto += `  + ${e.nombre}\n`;
+          texto += `   + ${e.nombre}\n`;
         });
       }
     });
 
+    texto += "-----------------------------\n";
+
+    // Comentario
     if (pedido.comentario) {
-      console.log("💬 Agregando comentario a impresión");
-      texto += "\n--- COMENTARIO ---\n";
-      texto += pedido.comentario + "\n";
+      texto += "COMENTARIO:\n";
+      texto += `${pedido.comentario}\n`;
+      texto += "-----------------------------\n";
     }
 
-    texto += `\nTOTAL: ₡${pedido.total}\n\n`;
+    // Total destacado
+    texto += "\x1B\x21\x30"; // Texto doble ancho/alto
+    texto += `TOTAL: ₡${pedido.total}\n`;
+    texto += "\x1B\x21\x00"; // Reset tamaño
+
+    texto += "-----------------------------\n";
+
+    // Pie de página
+    texto += "\x1B\x61\x01"; // Centrado
+    texto += "¡Gracias por su compra!\n";
+    texto += "\n\n\n";
+
+    // Corte de papel
     texto += "\x1D\x56\x00";
 
     console.log("📤 Enviando datos a la impresora...");
     console.log("📏 Bytes enviados:", Buffer.byteLength(texto));
 
     client.write(texto, () => {
-      console.log("✅ Datos enviados correctamente a la impresora");
+      console.log("✅ Factura enviada correctamente a la impresora");
       client.end();
     });
   });
