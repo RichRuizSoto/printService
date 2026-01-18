@@ -15,18 +15,6 @@ const PRINTER_IP = process.env.PRINTER_IP;
 const PRINTER_PORT = Number(process.env.PRINTER_PORT);
 
 /* =========================
-   FUNCIÓN AUXILIAR PARA LIMPIAR TEXTO
-========================= */
-
-function limpiarTexto(str) {
-  return str
-    .normalize("NFD")                // separa letras y acentos
-    .replace(/[\u0300-\u036f]/g, "") // elimina los acentos
-    .replace(/[^A-Z0-9\s\+\-:]/gi, "") // elimina símbolos raros
-    .toUpperCase();
-}
-
-/* =========================
    LOG INICIAL
 ========================= */
 
@@ -121,22 +109,22 @@ function imprimirPedido(pedido) {
     texto += "\x1B\x61\x01"; // Centrado
     texto += "\x1B\x74\x00"; // Codepage USA (sin acentos ni ₡)
 
-    // Encabezado
-    texto += limpiarTexto(pedido.restaurante) + "\n";
-    texto += `PEDIDO #${limpiarTexto(String(pedido.numero_orden))}\n`;
-    texto += limpiarTexto(pedido.tipo_servicio) + "\n";
-    texto += limpiarTexto(new Date().toLocaleString()) + "\n";
+    // Encabezado en mayúsculas
+    texto += `${pedido.restaurante.toUpperCase()}\n`;
+    texto += `PEDIDO #${String(pedido.numero_orden).toUpperCase()}\n`;
+    texto += `${pedido.tipo_servicio.toUpperCase()}\n`;
+    texto += `${new Date().toLocaleString().toUpperCase()}\n`;
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x00"; // Alinear a la izquierda
 
     // Productos
     pedido.productos.forEach((p) => {
-      const linea = `${limpiarTexto(String(p.cantidad))}x ${limpiarTexto(p.nombre)}`;
+      const linea = `${String(p.cantidad).toUpperCase()}x ${p.nombre.toUpperCase()}`;
       texto += linea + "\n";
 
       if (Array.isArray(p.extras)) {
         p.extras.forEach((e) => {
-          texto += `   + ${limpiarTexto(e.nombre)}\n`;
+          texto += `   + ${e.nombre.toUpperCase()}\n`;
         });
       }
     });
@@ -146,13 +134,13 @@ function imprimirPedido(pedido) {
     // Comentario
     if (pedido.comentario) {
       texto += "COMENTARIO:\n";
-      texto += limpiarTexto(pedido.comentario) + "\n";
+      texto += `${pedido.comentario.toUpperCase()}\n`;
       texto += "-----------------------------\n";
     }
 
     // Total destacado
     texto += "\x1B\x21\x30"; // Texto doble ancho/alto
-    texto += `TOTAL: ${limpiarTexto(String(pedido.total))} COLONES\n`;
+    texto += `TOTAL: ${String(pedido.total).toUpperCase()} COLONES\n`;
     texto += "\x1B\x21\x00"; // Reset tamaño
 
     texto += "-----------------------------\n";
@@ -162,11 +150,20 @@ function imprimirPedido(pedido) {
     texto += "GRACIAS POR SU COMPRA\n";
     texto += "\n\n\n";
 
-    // Corte de papel
-    texto += "\x1D\x56\x00";
-
+    // En vez de enviar el corte inmediatamente, lo mandamos con retraso
     console.log("📤 Enviando datos a la impresora...");
     console.log("📏 Bytes enviados:", Buffer.byteLength(texto));
+
+    client.write(texto, () => {
+      console.log("✅ Factura enviada correctamente a la impresora");
+
+      // Esperar 3 segundos antes de enviar el corte
+      setTimeout(() => {
+        client.write("\x1D\x56\x00"); // Corte de papel
+        console.log("✂️ Corte de papel enviado tras 3 segundos");
+        client.end();
+      }, 3000);
+    });
 
     client.write(texto, () => {
       console.log("✅ Factura enviada correctamente a la impresora");
