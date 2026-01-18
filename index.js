@@ -147,23 +147,15 @@ function imprimirPedido(pedido) {
 
     // Pie de página
     texto += "\x1B\x61\x01"; // Centrado
-    texto += "GRACIAS POR SU COMPRA\n";
+    texto += "¡GRACIAS POR SU COMPRA!\n";
     texto += "\n\n\n";
+    texto += ".";
 
-    // En vez de enviar el corte inmediatamente, lo mandamos con retraso
+    // Corte de papel
+    texto += "\x1D\x56\x00";
+
     console.log("📤 Enviando datos a la impresora...");
     console.log("📏 Bytes enviados:", Buffer.byteLength(texto));
-
-    client.write(texto, () => {
-      console.log("✅ Factura enviada correctamente a la impresora");
-
-      // Esperar 3 segundos antes de enviar el corte
-      setTimeout(() => {
-        client.write("\x1D\x56\x00"); // Corte de papel
-        console.log("✂️ Corte de papel enviado tras 3 segundos");
-        client.end();
-      }, 3000);
-    });
 
     client.write(texto, () => {
       console.log("✅ Factura enviada correctamente a la impresora");
