@@ -107,23 +107,24 @@ function imprimirPedido(pedido) {
     // Inicializar impresora
     texto += "\x1B\x40"; // Reset
     texto += "\x1B\x61\x01"; // Centrado
+    texto += "\x1B\x74\x02"; // Seleccionar codepage CP850 (acentos y ñ)
 
-    // Encabezado
-    texto += `${pedido.restaurante}\n`;
-    texto += `PEDIDO #${pedido.numero_orden}\n`;
+    // Encabezado en mayúsculas
+    texto += `${pedido.restaurante.toUpperCase()}\n`;
+    texto += `PEDIDO #${String(pedido.numero_orden).toUpperCase()}\n`;
     texto += `${pedido.tipo_servicio.toUpperCase()}\n`;
-    texto += `${new Date().toLocaleString()}\n`;
+    texto += `${new Date().toLocaleString().toUpperCase()}\n`;
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x00"; // Alinear a la izquierda
 
     // Productos
     pedido.productos.forEach((p) => {
-      const linea = `${p.cantidad}x ${p.nombre}`;
+      const linea = `${String(p.cantidad).toUpperCase()}x ${p.nombre.toUpperCase()}`;
       texto += linea + "\n";
 
       if (Array.isArray(p.extras)) {
         p.extras.forEach((e) => {
-          texto += `   + ${e.nombre}\n`;
+          texto += `   + ${e.nombre.toUpperCase()}\n`;
         });
       }
     });
@@ -133,20 +134,20 @@ function imprimirPedido(pedido) {
     // Comentario
     if (pedido.comentario) {
       texto += "COMENTARIO:\n";
-      texto += `${pedido.comentario}\n`;
+      texto += `${pedido.comentario.toUpperCase()}\n`;
       texto += "-----------------------------\n";
     }
 
     // Total destacado
     texto += "\x1B\x21\x30"; // Texto doble ancho/alto
-    texto += `TOTAL: ₡${pedido.total}\n`;
+    texto += `TOTAL: ₡${String(pedido.total).toUpperCase()}\n`;
     texto += "\x1B\x21\x00"; // Reset tamaño
 
     texto += "-----------------------------\n";
 
     // Pie de página
     texto += "\x1B\x61\x01"; // Centrado
-    texto += "¡Gracias por su compra!\n";
+    texto += "¡GRACIAS POR SU COMPRA!\n";
     texto += "\n\n\n";
 
     // Corte de papel
