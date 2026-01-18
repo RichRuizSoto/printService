@@ -92,7 +92,6 @@ socket.on("printPedido", (pedido) => {
 /* =========================
    FUNCIÓN DE IMPRESIÓN
 ========================= */
-
 function imprimirPedido(pedido) {
   console.log(`🌐 Conectando a impresora ${PRINTER_IP}:${PRINTER_PORT}`);
 
@@ -104,83 +103,113 @@ function imprimirPedido(pedido) {
 
     let texto = "";
 
-    // Inicializar impresora
-    texto += "\x1B\x40"; // Reset
-    texto += "\x1B\x61\x01"; // Centrado
-    texto += "\x1B\x74\x00"; // Codepage USA (sin acentos ni ₡)
+    texto += "\x1B\x40";
+    texto += "\x1B\x61\x01";
+    texto += "\x1B\x74\x00";
 
-    // Encabezado
     texto += limpiarTexto(pedido.restaurante) + "\n";
     texto += `PEDIDO #${limpiarTexto(String(pedido.numero_orden))}\n`;
-    texto += limpiarTexto(pedido.tipo_servicio) + "\n";
-    texto += limpiarTexto(new Date().toLocaleString()) + "\n";
+
+    if (pedido.tipo_servicio === "restaurante") {
+      texto += `MESA ${limpiarTexto(String(pedido.mesa || ""))}\n`;
+    } else {
+      texto += limpiarTexto(pedido.tipo_servicio) + "\n";
+    }
+
+    texto += limpiarTexto(
+      pedido.pedido_creado_en
+        ? new Date(pedido.pedido_creado_en).toLocaleString()
+        : new Date().toLocaleString()
+    ) + "\n";
+
     texto += "-----------------------------\n";
-    texto += "\x1B\x61\x00"; // Alinear a la izquierda
+    texto += "\x1B\x61\x00";
 
-    // Productos
+    if (pedido.nombre) texto += `CLIENTE: ${limpiarTexto(pedido.nombre)}\n`;
+    if (pedido.telefono) texto += `TEL: ${limpiarTexto(pedido.telefono)}\n`;
+
+    if (pedido.tipo_servicio === "delivery" && pedido.direccion) {
+      texto += "DIRECCION:\n";
+      texto += limpiarTexto(pedido.direccion) + "\n";
+    }
+
+    texto += "-----------------------------\n";
+
     pedido.productos.forEach((p) => {
-      const linea = `${limpiarTexto(String(p.cantidad))}x ${limpiarTexto(p.nombre)}`;
-      texto += linea + "\n";
+      texto += `${p.cantidad}x ${limpiarTexto(p.nombre)}\n`;
 
-      if (Array.isArray(p.extras)) {
+      if (Array.isArray(p.extras) && p.extras.length) {
         p.extras.forEach((e) => {
-          texto += `   + ${limpiarTexto(e.nombre)}\n`;
+          texto += `   + ${limpiarTexto(e.nombre)} (${e.porcion || 1})\n`;
         });
       }
     });
 
-    // Comentario
+    texto += "-----------------------------\n";
+
     if (pedido.comentario) {
-      texto += "COMENTARIO:\n";
+      texto += "COMENTARIOS:\n";
       texto += limpiarTexto(pedido.comentario) + "\n";
       texto += "-----------------------------\n";
     }
 
-    // Total
-    texto += "\x1B\x21\x30"; // Texto doble ancho/alto
-    texto += `TOTAL: ${limpiarTexto(String(pedido.total))} COLONES\n`;
-    texto += "\x1B\x21\x00"; // Reset tamaño
+    if (typeof pedido.subtotal === "number") {
+      texto += `SUBTOTAL: ${limpiarTexto(String(pedido.subtotal))}\n`;
+    }
+
+    if (pedido.precio_delivery > 0) {
+      texto += `DELIVERY: ${limpiarTexto(String(pedido.precio_delivery))}\n`;
+    }
+
+    if (pedido.descuento > 0) {
+      texto += `DESCUENTO: -${limpiarTexto(String(pedido.descuento))}\n`;
+    }
 
     texto += "-----------------------------\n";
 
-    // Pie de página
-    texto += "\x1B\x61\x01"; // Centrado
-    texto += "GRACIAS POR SU COMPRA!\n";
-    texto += "\n\n\n";
+    texto += "\x1B\x21\x30";
+    texto += `TOTAL: ${limpiarTexto(String(pedido.total))} COLONES\n`;
+    texto += "\x1B\x21\x00";
 
-    // Corte de papel
+    if (pedido.metodo_pago) {
+      texto += `PAGO: ${limpiarTexto(pedido.metodo_pago)}\n`;
+    }
+
+    texto += "-----------------------------\n";
+    texto += "\x1B\x61\x01";
+    texto += "GRACIAS POR SU COMPRA\n";
+    texto += "\n\n\n\n";
     texto += "\x1D\x56\x42\x00";
 
     console.log("📤 Enviando datos a la impresora...");
     console.log("📏 Bytes enviados:", Buffer.byteLength(texto));
 
     client.write(texto, () => {
-      console.log("✅ Factura enviada correctamente a la impresora");
+      console.log("✅ Factura enviada correctamente");
       client.end();
     });
   });
 
   client.on("timeout", () => {
-    console.error("⏱️ Timeout: la impresora no respondió");
+    console.error("⏱️ Timeout impresora");
     client.destroy();
   });
 
   client.on("error", (err) => {
-    console.error("❌ Error TCP durante impresión");
-    console.error("📛 Código:", err.code);
-    console.error("📛 Mensaje:", err.message);
+    console.error("❌ Error TCP impresión");
+    console.error(err.message);
   });
 
   client.on("close", () => {
-    console.log("🔌 Conexión con impresora cerrada");
+    console.log("🔌 Conexión cerrada");
   });
 }
 
 function limpiarTexto(texto) {
   if (!texto) return "";
   return texto
-    .normalize("NFD") // separa letras y acentos
-    .replace(/[\u0300-\u036f]/g, "") // elimina los acentos
-    .replace(/[^a-zA-Z0-9\s\+\-\.,:]/g, "") // elimina símbolos raros
-    .toUpperCase(); // todo en mayúsculas
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9\s\+\-\.,:]/gi, "")
+    .toUpperCase();
 }
