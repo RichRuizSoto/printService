@@ -115,12 +115,18 @@ function imprimirPedido(pedido) {
     } else {
       texto += limpiarTexto(pedido.tipo_servicio) + "\n";
     }
+texto += limpiarTexto(
+  new Date().toLocaleString("es-CR", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+) + "\n";
 
-    texto += limpiarTexto(
-      pedido.pedido_creado_en
-        ? new Date(pedido.pedido_creado_en).toLocaleString()
-        : new Date().toLocaleString()
-    ) + "\n";
 
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x00";
