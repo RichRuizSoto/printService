@@ -147,8 +147,9 @@ function imprimirPedido(pedido) {
 
     // Pie de página
     texto += "\x1B\x61\x01"; // Centrado
-    texto += "GRACIAS POR SU COMPRA!\n\n\n";
+    texto += "GRACIAS POR SU COMPRA!\n";
     texto += " ";
+    texto += "\n\n\n";
 
     // Corte de papel
     texto += "\x1D\x56\x00";
