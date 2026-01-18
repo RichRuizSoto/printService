@@ -107,7 +107,7 @@ function imprimirPedido(pedido) {
     // Inicializar impresora
     texto += "\x1B\x40"; // Reset
     texto += "\x1B\x61\x01"; // Centrado
-    texto += "\x1B\x74\x02"; // Seleccionar codepage CP850 (acentos y ñ)
+    texto += "\x1B\x74\x00"; // Codepage USA (sin acentos ni ₡)
 
     // Encabezado en mayúsculas
     texto += `${pedido.restaurante.toUpperCase()}\n`;
@@ -140,7 +140,7 @@ function imprimirPedido(pedido) {
 
     // Total destacado
     texto += "\x1B\x21\x30"; // Texto doble ancho/alto
-    texto += `TOTAL: ₡${String(pedido.total).toUpperCase()}\n`;
+    texto += `TOTAL: ${String(pedido.total).toUpperCase()} COLONES\n`;
     texto += "\x1B\x21\x00"; // Reset tamaño
 
     texto += "-----------------------------\n";
