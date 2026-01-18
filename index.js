@@ -15,6 +15,18 @@ const PRINTER_IP = process.env.PRINTER_IP;
 const PRINTER_PORT = Number(process.env.PRINTER_PORT);
 
 /* =========================
+   FUNCIÓN AUXILIAR PARA LIMPIAR TEXTO
+========================= */
+
+function limpiarTexto(str) {
+  return str
+    .normalize("NFD")                // separa letras y acentos
+    .replace(/[\u0300-\u036f]/g, "") // elimina los acentos
+    .replace(/[^A-Z0-9\s\+\-:]/gi, "") // elimina símbolos raros
+    .toUpperCase();
+}
+
+/* =========================
    LOG INICIAL
 ========================= */
 
@@ -109,22 +121,22 @@ function imprimirPedido(pedido) {
     texto += "\x1B\x61\x01"; // Centrado
     texto += "\x1B\x74\x00"; // Codepage USA (sin acentos ni ₡)
 
-    // Encabezado en mayúsculas
-    texto += `${pedido.restaurante.toUpperCase()}\n`;
-    texto += `PEDIDO #${String(pedido.numero_orden).toUpperCase()}\n`;
-    texto += `${pedido.tipo_servicio.toUpperCase()}\n`;
-    texto += `${new Date().toLocaleString().toUpperCase()}\n`;
+    // Encabezado
+    texto += limpiarTexto(pedido.restaurante) + "\n";
+    texto += `PEDIDO #${limpiarTexto(String(pedido.numero_orden))}\n`;
+    texto += limpiarTexto(pedido.tipo_servicio) + "\n";
+    texto += limpiarTexto(new Date().toLocaleString()) + "\n";
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x00"; // Alinear a la izquierda
 
     // Productos
     pedido.productos.forEach((p) => {
-      const linea = `${String(p.cantidad).toUpperCase()}x ${p.nombre.toUpperCase()}`;
+      const linea = `${limpiarTexto(String(p.cantidad))}x ${limpiarTexto(p.nombre)}`;
       texto += linea + "\n";
 
       if (Array.isArray(p.extras)) {
         p.extras.forEach((e) => {
-          texto += `   + ${e.nombre.toUpperCase()}\n`;
+          texto += `   + ${limpiarTexto(e.nombre)}\n`;
         });
       }
     });
@@ -134,20 +146,20 @@ function imprimirPedido(pedido) {
     // Comentario
     if (pedido.comentario) {
       texto += "COMENTARIO:\n";
-      texto += `${pedido.comentario.toUpperCase()}\n`;
+      texto += limpiarTexto(pedido.comentario) + "\n";
       texto += "-----------------------------\n";
     }
 
     // Total destacado
     texto += "\x1B\x21\x30"; // Texto doble ancho/alto
-    texto += `TOTAL: ${String(pedido.total).toUpperCase()} COLONES\n`;
+    texto += `TOTAL: ${limpiarTexto(String(pedido.total))} COLONES\n`;
     texto += "\x1B\x21\x00"; // Reset tamaño
 
     texto += "-----------------------------\n";
 
     // Pie de página
     texto += "\x1B\x61\x01"; // Centrado
-    texto += "¡GRACIAS POR SU COMPRA!\n";
+    texto += "GRACIAS POR SU COMPRA\n";
     texto += "\n\n\n";
 
     // Corte de papel
