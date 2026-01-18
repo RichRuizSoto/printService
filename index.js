@@ -109,38 +109,36 @@ function imprimirPedido(pedido) {
     texto += "\x1B\x61\x01"; // Centrado
     texto += "\x1B\x74\x00"; // Codepage USA (sin acentos ni ₡)
 
-    // Encabezado en mayúsculas
-    texto += `${pedido.restaurante.toUpperCase()}\n`;
-    texto += `PEDIDO #${String(pedido.numero_orden).toUpperCase()}\n`;
-    texto += `${pedido.tipo_servicio.toUpperCase()}\n`;
-    texto += `${new Date().toLocaleString().toUpperCase()}\n`;
+    // Encabezado
+    texto += limpiarTexto(pedido.restaurante) + "\n";
+    texto += `PEDIDO #${limpiarTexto(String(pedido.numero_orden))}\n`;
+    texto += limpiarTexto(pedido.tipo_servicio) + "\n";
+    texto += limpiarTexto(new Date().toLocaleString()) + "\n";
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x00"; // Alinear a la izquierda
 
     // Productos
     pedido.productos.forEach((p) => {
-      const linea = `${String(p.cantidad).toUpperCase()}x ${p.nombre.toUpperCase()}`;
+      const linea = `${limpiarTexto(String(p.cantidad))}x ${limpiarTexto(p.nombre)}`;
       texto += linea + "\n";
 
       if (Array.isArray(p.extras)) {
         p.extras.forEach((e) => {
-          texto += `   + ${e.nombre.toUpperCase()}\n`;
+          texto += `   + ${limpiarTexto(e.nombre)}\n`;
         });
       }
     });
 
-    texto += "-----------------------------\n";
-
     // Comentario
     if (pedido.comentario) {
       texto += "COMENTARIO:\n";
-      texto += `${pedido.comentario.toUpperCase()}\n`;
+      texto += limpiarTexto(pedido.comentario) + "\n";
       texto += "-----------------------------\n";
     }
 
-    // Total destacado
+    // Total
     texto += "\x1B\x21\x30"; // Texto doble ancho/alto
-    texto += `TOTAL: ${String(pedido.total).toUpperCase()} COLONES\n`;
+    texto += `TOTAL: ${limpiarTexto(String(pedido.total))} COLONES\n`;
     texto += "\x1B\x21\x00"; // Reset tamaño
 
     texto += "-----------------------------\n";
@@ -176,4 +174,13 @@ function imprimirPedido(pedido) {
   client.on("close", () => {
     console.log("🔌 Conexión con impresora cerrada");
   });
+}
+
+function limpiarTexto(texto) {
+  if (!texto) return "";
+  return texto
+    .normalize("NFD") // separa letras y acentos
+    .replace(/[\u0300-\u036f]/g, "") // elimina los acentos
+    .replace(/[^a-zA-Z0-9\s\+\-\.,:]/g, "") // elimina símbolos raros
+    .toUpperCase(); // todo en mayúsculas
 }
