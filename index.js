@@ -152,8 +152,8 @@ function imprimirPedido(pedido) {
 
     // Corte de papel
     texto += "\x1D\x56\x00";
-    // texto += "\x1D\x56\x01";
-    // texto += "\x1D\x56\x42\x00";
+    texto += "\x1D\x56\x01";
+    texto += "\x1D\x56\x42\x00";
 
     console.log("📤 Enviando datos a la impresora...");
     console.log("📏 Bytes enviados:", Buffer.byteLength(texto));
