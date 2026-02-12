@@ -8,7 +8,7 @@ const net = require("net");
 ========================= */
 
 const BACKEND_URL = process.env.BACKEND_URL;
-const RESTAURANTE_ID = Number(process.env.RESTAURANTE_ID);
+const RESTAURANTE_SLUG = process.env.RESTAURANTE_SLUG;
 const API_KEY = process.env.API_KEY;
 
 const PRINTER_IP = process.env.PRINTER_IP;
@@ -24,7 +24,7 @@ console.log("🕒 Fecha:", new Date().toLocaleString());
 console.log("🔧 Configuración cargada:");
 console.log({
   BACKEND_URL,
-  RESTAURANTE_ID,
+  RESTAURANTE_SLUG,
   PRINTER_IP,
   PRINTER_PORT,
 });
@@ -47,10 +47,9 @@ const socket = io(BACKEND_URL, {
 socket.on("connect", () => {
   console.log("🟢 Socket conectado");
   console.log("🆔 Socket ID:", socket.id);
-  console.log(`🔑 Registrando impresora para restaurante ${RESTAURANTE_ID}`);
 
   socket.emit("registrarImpresora", {
-    restauranteId: RESTAURANTE_ID,
+    restauranteSlug: RESTAURANTE_SLUG,
     apiKey: API_KEY,
   });
 
@@ -115,18 +114,17 @@ function imprimirPedido(pedido) {
     } else {
       texto += limpiarTexto(pedido.tipo_servicio) + "\n";
     }
-texto += 
-  new Date().toLocaleString("es-CR", {
-    timeZone: "America/Costa_Rica",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  })
-+ "\n";
-
+    texto +=
+      new Date().toLocaleString("es-CR", {
+        timeZone: "America/Costa_Rica",
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) + "\n";
 
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x00";
