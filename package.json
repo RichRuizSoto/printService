@@ -2,9 +2,9 @@
   "name": "printer-service",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+"scripts": {
+  "start-secure": "eval $(gpg -d .env.gpg | sed 's/^/export /') && node index.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
