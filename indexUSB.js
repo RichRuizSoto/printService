@@ -1,18 +1,19 @@
 require("dotenv").config();
 
+const fs = require("fs");
+const { exec } = require("child_process");
 const io = require("socket.io-client");
-const escpos = require("escpos");
-escpos.USB = require("escpos-usb");
 
 const BACKEND_URL = process.env.BACKEND_URL;
 const RESTAURANTE_SLUG = process.env.RESTAURANTE_SLUG;
 const API_KEY = process.env.API_KEY;
 
-console.log("🧾 ===============================");
+const PRINTER_NAME = "POS-58";
+const TELEFONO_RESTAURANTE = "62953040";
+
 console.log("🧾 Printer Service iniciado");
-console.log("🕒 Fecha:", new Date().toLocaleString());
-console.log({ BACKEND_URL, RESTAURANTE_SLUG });
-console.log("🧾 ===============================");
+
+// ================= SOCKET =================
 
 const socket = io(BACKEND_URL, {
   reconnection: true,
@@ -23,122 +24,116 @@ const socket = io(BACKEND_URL, {
 });
 
 socket.on("connect", () => {
-  console.log("🟢 Socket conectado", socket.id);
+  console.log("🟢 Conectado", socket.id);
+
   socket.emit("registrarImpresora", {
     restauranteSlug: RESTAURANTE_SLUG,
     apiKey: API_KEY,
   });
 });
 
-socket.on("connect_error", err => {
-  console.error("❌ Error Socket.IO", err.message);
-});
-
-socket.on("disconnect", reason => {
-  console.warn("🔴 Socket desconectado", reason);
-});
-
 socket.on("printPedido", pedido => {
-  console.log("🖨️ Pedido recibido", pedido.numero_orden);
+  console.log("🖨️ Pedido recibido:", pedido.numero_orden);
   imprimirPedido(pedido);
 });
 
+// ================= IMPRESIÓN =================
+
 function imprimirPedido(pedido) {
-  const device = new escpos.USB();
-  const printer = new escpos.Printer(device);
+  try {
+    const tempFile = `ticket_${Date.now()}.txt`;
+    const CUT = "\x1D\x56\x00";
 
-  device.open(error => {
-    if (error) {
-      console.error("❌ Error impresora USB", error);
-      return;
-    }
+    let ticket = "";
 
-    printer
-      .align("CT")
-      .text(limpiarTexto(pedido.restaurante))
-      .text(`PEDIDO #${limpiarTexto(String(pedido.numero_orden))}`);
+    // Centrado general
+    ticket += "\x1B\x61\x01"; // align center
 
-    if (pedido.tipo_servicio === "restaurante") {
-      printer.text(`MESA ${limpiarTexto(String(pedido.mesa || ""))}`);
-    } else {
-      printer.text(limpiarTexto(pedido.tipo_servicio));
-    }
+    // ENCABEZADO
+    ticket += limpiarTexto(pedido.restaurante) + "\n";
+    ticket += `TEL: ${TELEFONO_RESTAURANTE}\n\n`;
 
-    printer.text(
-      new Date().toLocaleString("es-CR", {
-        timeZone: "America/Costa_Rica",
-        hour12: false,
-      })
-    );
+    // PEDIDO GRANDE
+    ticket += "\x1D\x21\x11"; // tamaño grande (doble ancho + alto)
+    ticket += `PEDIDO #${pedido.numero_orden}\n`;
+    ticket += "\x1D\x21\x00"; // tamaño normal
 
-    printer.text("-----------------------------");
-    printer.align("LT");
+    ticket += (pedido.tipo_servicio || "").toUpperCase() + "\n";
+
+    ticket += new Date().toLocaleString("es-CR", {
+      timeZone: "America/Costa_Rica",
+      hour12: false,
+    }) + "\n";
+
+    ticket += "--------------------------------\n";
+
+    // Alinear izquierda para productos
+    ticket += "\x1B\x61\x00";
 
     if (pedido.nombre)
-      printer.text(`CLIENTE: ${limpiarTexto(pedido.nombre)}`);
+      ticket += `CLIENTE: ${limpiarTexto(pedido.nombre)}\n`;
+
     if (pedido.telefono)
-      printer.text(`TEL: ${limpiarTexto(pedido.telefono)}`);
+      ticket += `TEL CLIENTE: ${limpiarTexto(pedido.telefono)}\n`;
 
     if (pedido.tipo_servicio === "delivery" && pedido.direccion) {
-      printer.text("DIRECCION:");
-      printer.text(limpiarTexto(pedido.direccion));
+      ticket += "DIRECCION:\n";
+      ticket += limpiarTexto(pedido.direccion) + "\n";
     }
 
-    printer.text("-----------------------------");
+    ticket += "--------------------------------\n";
 
     pedido.productos.forEach(p => {
-      printer.text(` ${limpiarTexto(p.nombre)}`);
+      ticket += ` ${limpiarTexto(p.nombre)}\n`;
+
       if (Array.isArray(p.extras)) {
         p.extras.forEach(e => {
-          printer.text(
-            `   + ${limpiarTexto(e.nombre)} (${e.porcion || 1})`
-          );
+          ticket += `   + ${limpiarTexto(e.nombre)} (${e.porcion || 1})\n`;
         });
       }
     });
 
-    printer.text("-----------------------------");
+    ticket += "--------------------------------\n";
 
     if (pedido.comentario) {
-      printer.text("COMENTARIOS:");
-      printer.text(limpiarTexto(pedido.comentario));
-      printer.text("-----------------------------");
+      ticket += "COMENTARIOS:\n";
+      ticket += limpiarTexto(pedido.comentario) + "\n";
+      ticket += "--------------------------------\n";
     }
 
-    if (typeof pedido.subtotal === "number")
-      printer.text(`SUBTOTAL: ${limpiarTexto(String(pedido.subtotal))}`);
+    // Volver a centrar para totales
+    ticket += "\x1B\x61\x01";
 
-    if (pedido.precio_delivery > 0)
-      printer.text(
-        `DELIVERY: ${limpiarTexto(String(pedido.precio_delivery))}`
-      );
-
-    if (pedido.descuento > 0)
-      printer.text(
-        `DESCUENTO: -${limpiarTexto(String(pedido.descuento))}`
-      );
-
-    printer.text("-----------------------------");
-
-    printer
-      .size(2, 2)
-      .text(`TOTAL: ${limpiarTexto(String(pedido.total))} COLONES`)
-      .size(1, 1);
+    // TOTAL GRANDE IGUAL QUE PEDIDO
+    ticket += "\x1D\x21\x11";
+    ticket += `TOTAL: ${pedido.total}  \n`;
+    ticket += "\x1D\x21\x00";
 
     if (pedido.metodo_pago)
-      printer.text(`PAGO: ${limpiarTexto(pedido.metodo_pago)}`);
+      ticket += `PAGO: ${limpiarTexto(pedido.metodo_pago)}\n`;
 
-    printer
-      .text("-----------------------------")
-      .align("CT")
-      .text("GRACIAS POR SU COMPRA")
-      .feed(4)
-      .cut()
-      .close();
+    ticket += "\nGRACIAS POR SU COMPRA\n";
+    ticket += `   \n\n\n`;
 
-    console.log("✅ Factura enviada");
-  });
+    ticket += CUT;
+
+    fs.writeFileSync(tempFile, ticket, "binary");
+
+    exec(`copy /b ${tempFile} \\\\localhost\\${PRINTER_NAME}`, error => {
+      if (error) {
+        console.error("❌ Error al imprimir:", error);
+      } else {
+        console.log("✅ Pedido impreso correctamente");
+      }
+      fs.unlinkSync(tempFile);
+    });
+
+  } catch (err) {
+    console.error("❌ Error general impresión:", err);
+  }
 }
+
+// ================= UTILIDAD =================
 
 function limpiarTexto(texto) {
   if (!texto) return "";
