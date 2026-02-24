@@ -32,9 +32,28 @@ socket.on("connect", () => {
   });
 });
 
+// socket.on("printPedido", pedido => {
+//   console.log("🖨️ Pedido recibido:", pedido.numero_orden);
+//   imprimirPedido(pedido);
+// });
+
 socket.on("printPedido", pedido => {
-  console.log("🖨️ Pedido recibido:", pedido.numero_orden);
-  imprimirPedido(pedido);
+  console.log("📦 Pedido recibido:", pedido.numero_orden);
+
+  // 1️⃣ Siempre revisar método de pago
+  if (
+    pedido.metodo_pago &&
+    pedido.metodo_pago.toLowerCase() === "efectivo"
+  ) {
+    abrirCaja();
+  }
+
+  // 2️⃣ Solo imprimir si imprimir_factura es true
+  if (pedido.imprimir_factura === true) {
+    imprimirPedido(pedido);
+  } else {
+    console.log("🛑 Pedido marcado como NO imprimible");
+  }
 });
 
 // ================= IMPRESIÓN =================
@@ -130,6 +149,31 @@ function imprimirPedido(pedido) {
 
   } catch (err) {
     console.error("❌ Error general impresión:", err);
+  }
+}
+
+function abrirCaja() {
+  try {
+    console.log("💰 Abriendo caja de efectivo...");
+
+    const tempFile = `open_cash_${Date.now()}.txt`;
+
+    // Comando ESC/POS para abrir cajón (pin 2)
+    const OPEN_DRAWER = "\x1B\x70\x00\x19\xFA";
+    // const OPEN_DRAWER = "\x1B\x70\x01\x19\xFA";
+    fs.writeFileSync(tempFile, OPEN_DRAWER, "binary");
+
+    exec(`copy /b ${tempFile} \\\\localhost\\${PRINTER_NAME}`, error => {
+      if (error) {
+        console.error("❌ Error al abrir caja:", error);
+      } else {
+        console.log("✅ Caja abierta correctamente");
+      }
+      fs.unlinkSync(tempFile);
+    });
+
+  } catch (err) {
+    console.error("❌ Error general caja:", err);
   }
 }
 
