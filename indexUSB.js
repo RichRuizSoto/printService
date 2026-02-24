@@ -12,6 +12,8 @@ const PRINTER_NAME = "POS-58";
 const TELEFONO_RESTAURANTE = "62953040";
 
 console.log("🧾 Printer Service iniciado");
+console.log("🔎 ENV:", { BACKEND_URL, RESTAURANTE_SLUG, API_KEY });
+console.log("🖨️ Impresora configurada:", PRINTER_NAME);
 
 // ================= SOCKET =================
 
@@ -24,7 +26,8 @@ const socket = io(BACKEND_URL, {
 });
 
 socket.on("connect", () => {
-  console.log("🟢 Conectado", socket.id);
+  console.log("🟢 Conectado al backend");
+  console.log("🆔 Socket ID:", socket.id);
 
   socket.emit("registrarImpresora", {
     restauranteSlug: RESTAURANTE_SLUG,
@@ -32,24 +35,28 @@ socket.on("connect", () => {
   });
 });
 
-// socket.on("printPedido", pedido => {
-//   console.log("🖨️ Pedido recibido:", pedido.numero_orden);
-//   imprimirPedido(pedido);
-// });
+socket.on("connect_error", (err) => {
+  console.error("❌ Error de conexión socket:", err.message);
+});
 
 socket.on("printPedido", pedido => {
-  console.log("📦 Pedido recibido:", pedido.numero_orden);
+  console.log("==================================================");
+  console.log("📦 Pedido recibido completo:");
+  console.log(JSON.stringify(pedido, null, 2));
+  console.log("--------------------------------------------------");
+  console.log("🧾 imprimir_factura:", pedido.imprimir_factura, "| tipo:", typeof pedido.imprimir_factura);
+  console.log("💳 metodo_pago:", pedido.metodo_pago);
 
-  // 1️⃣ Siempre revisar método de pago
   if (
     pedido.metodo_pago &&
     pedido.metodo_pago.toLowerCase() === "efectivo"
   ) {
+    console.log("💰 Método efectivo detectado → intentando abrir caja");
     abrirCaja();
   }
 
-  // 2️⃣ Solo imprimir si imprimir_factura es true
   if (pedido.imprimir_factura === true) {
+    console.log("🖨️ Pedido marcado como imprimible");
     imprimirPedido(pedido);
   } else {
     console.log("🛑 Pedido marcado como NO imprimible");
@@ -60,22 +67,20 @@ socket.on("printPedido", pedido => {
 
 function imprimirPedido(pedido) {
   try {
+    console.log("🚀 Iniciando proceso de impresión...");
+
     const tempFile = `ticket_${Date.now()}.txt`;
     const CUT = "\x1D\x56\x00";
 
     let ticket = "";
 
-    // Centrado general
-    ticket += "\x1B\x61\x01"; // align center
-
-    // ENCABEZADO
+    ticket += "\x1B\x61\x01";
     ticket += limpiarTexto(pedido.restaurante) + "\n";
     ticket += `TEL: ${TELEFONO_RESTAURANTE}\n\n`;
 
-    // PEDIDO GRANDE
-    ticket += "\x1D\x21\x11"; // tamaño grande (doble ancho + alto)
+    ticket += "\x1D\x21\x11";
     ticket += `PEDIDO #${pedido.numero_orden}\n`;
-    ticket += "\x1D\x21\x00"; // tamaño normal
+    ticket += "\x1D\x21\x00";
 
     ticket += (pedido.tipo_servicio || "").toUpperCase() + "\n";
 
@@ -85,8 +90,6 @@ function imprimirPedido(pedido) {
     }) + "\n";
 
     ticket += "--------------------------------\n";
-
-    // Alinear izquierda para productos
     ticket += "\x1B\x61\x00";
 
     if (pedido.nombre)
@@ -101,6 +104,11 @@ function imprimirPedido(pedido) {
     }
 
     ticket += "--------------------------------\n";
+
+    if (!Array.isArray(pedido.productos)) {
+      console.error("❌ pedido.productos NO es un arreglo");
+      return;
+    }
 
     pedido.productos.forEach(p => {
       ticket += ` ${limpiarTexto(p.nombre)}\n`;
@@ -120,10 +128,8 @@ function imprimirPedido(pedido) {
       ticket += "--------------------------------\n";
     }
 
-    // Volver a centrar para totales
     ticket += "\x1B\x61\x01";
 
-    // TOTAL GRANDE IGUAL QUE PEDIDO
     ticket += "\x1D\x21\x11";
     ticket += `TOTAL: ${pedido.total}  \n`;
     ticket += "\x1D\x21\x00";
@@ -133,18 +139,34 @@ function imprimirPedido(pedido) {
 
     ticket += "\nGRACIAS POR SU COMPRA\n";
     ticket += `   \n\n\n`;
-
     ticket += CUT;
+
+    console.log("📄 Escribiendo archivo temporal:", tempFile);
 
     fs.writeFileSync(tempFile, ticket, "binary");
 
-    exec(`copy /b ${tempFile} \\\\localhost\\${PRINTER_NAME}`, error => {
+    const stats = fs.statSync(tempFile);
+    console.log("📦 Tamaño archivo:", stats.size, "bytes");
+
+    const command = `copy /b ${tempFile} \\\\localhost\\${PRINTER_NAME}`;
+    console.log("🖥️ Ejecutando comando:", command);
+
+    exec(command, (error, stdout, stderr) => {
+      console.log("📤 STDOUT:", stdout);
+      console.log("📤 STDERR:", stderr);
+
       if (error) {
         console.error("❌ Error al imprimir:", error);
       } else {
         console.log("✅ Pedido impreso correctamente");
       }
-      fs.unlinkSync(tempFile);
+
+      try {
+        fs.unlinkSync(tempFile);
+        console.log("🗑️ Archivo temporal eliminado");
+      } catch (e) {
+        console.error("⚠ No se pudo borrar el archivo temporal:", e.message);
+      }
     });
 
   } catch (err) {
@@ -157,19 +179,29 @@ function abrirCaja() {
     console.log("💰 Abriendo caja de efectivo...");
 
     const tempFile = `open_cash_${Date.now()}.txt`;
-
-    // Comando ESC/POS para abrir cajón (pin 2)
     const OPEN_DRAWER = "\x1B\x70\x00\x19\xFA";
-    // const OPEN_DRAWER = "\x1B\x70\x01\x19\xFA";
+
     fs.writeFileSync(tempFile, OPEN_DRAWER, "binary");
 
-    exec(`copy /b ${tempFile} \\\\localhost\\${PRINTER_NAME}`, error => {
+    const command = `copy /b ${tempFile} \\\\localhost\\${PRINTER_NAME}`;
+    console.log("🖥️ Ejecutando comando caja:", command);
+
+    exec(command, (error, stdout, stderr) => {
+      console.log("📤 STDOUT CAJA:", stdout);
+      console.log("📤 STDERR CAJA:", stderr);
+
       if (error) {
         console.error("❌ Error al abrir caja:", error);
       } else {
         console.log("✅ Caja abierta correctamente");
       }
-      fs.unlinkSync(tempFile);
+
+      try {
+        fs.unlinkSync(tempFile);
+        console.log("🗑️ Archivo caja eliminado");
+      } catch (e) {
+        console.error("⚠ No se pudo borrar archivo caja:", e.message);
+      }
     });
 
   } catch (err) {
