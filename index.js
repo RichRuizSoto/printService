@@ -50,9 +50,40 @@ socket.on("disconnect", (reason) => {
 });
 
 socket.on("printPedido", (pedido) => {
-  console.log("🖨️ Pedido recibido:", pedido.numero_orden);
-  imprimirPedido(pedido);
+  console.log("📦 Pedido recibido:", pedido.numero_orden);
+
+  const metodoPago = (pedido.metodo_pago || "")
+    .toString()
+    .trim()
+    .toLowerCase();
+
+  const debeImprimir = pedido.imprimir_factura === true;
+  const esEfectivo = metodoPago === "efectivo";
+
+  if (esEfectivo) {
+    abrirCaja();
+  }
+
+  if (debeImprimir) {
+    imprimirPedido(pedido);
+  } else {
+    console.log("🚫 Pedido marcado como NO imprimir");
+  }
 });
+
+function abrirCaja() {
+  const client = new net.Socket();
+
+  client.connect(PRINTER_PORT, PRINTER_IP, () => {
+    console.log("💵 Abriendo caja...");
+    client.write("\x1B\x70\x00\x19\xFA");
+    client.end();
+  });
+
+  client.on("error", (err) => {
+    console.error("❌ Error al abrir caja:", err.message);
+  });
+}
 
 function imprimirPedido(pedido) {
   console.log(`🌐 Conectando a impresora ${PRINTER_IP}:${PRINTER_PORT}`);
@@ -134,8 +165,17 @@ function imprimirPedido(pedido) {
     texto += "\n\n\n\n";
 
     // Comando para abrir cash drawer (24V, 1A)
-    texto += "\x1B\x70\x00\x19\xFA";
+const metodoPago = (pedido.metodo_pago || "")
+  .toString()
+  .trim()
+  .toLowerCase();
 
+if (metodoPago === "efectivo") {
+  console.log("💵 Pago en efectivo → Abriendo caja");
+  texto += "\x1B\x70\x00\x19\xFA";
+} else {
+  console.log("💳 Pago no es efectivo → No se abre caja");
+}
     console.log("📤 Enviando datos a la impresora...");
     client.write(texto, () => {
       console.log("✅ Factura enviada y caja abierta");
