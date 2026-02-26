@@ -52,10 +52,7 @@ socket.on("disconnect", (reason) => {
 socket.on("printPedido", (pedido) => {
   console.log("📦 Pedido recibido:", pedido.numero_orden);
 
-  const metodoPago = (pedido.metodo_pago || "")
-    .toString()
-    .trim()
-    .toLowerCase();
+  const metodoPago = (pedido.metodo_pago || "").toString().trim().toLowerCase();
 
   const debeImprimir = pedido.imprimir_factura === true;
   const esEfectivo = metodoPago === "efectivo";
@@ -148,34 +145,39 @@ function imprimirPedido(pedido) {
       texto += "-----------------------------\n";
     }
 
-    if (typeof pedido.subtotal === "number") texto += `SUBTOTAL: ${limpiarTexto(String(pedido.subtotal))}\n`;
-    if (pedido.precio_delivery > 0) texto += `DELIVERY: ${limpiarTexto(String(pedido.precio_delivery))}\n`;
-    if (pedido.descuento > 0) texto += `DESCUENTO: -${limpiarTexto(String(pedido.descuento))}\n`;
+    if (typeof pedido.subtotal === "number")
+      texto += `SUBTOTAL: ${limpiarTexto(String(pedido.subtotal))}\n`;
+    if (pedido.precio_delivery > 0)
+      texto += `DELIVERY: ${limpiarTexto(String(pedido.precio_delivery))}\n`;
+    if (pedido.descuento > 0)
+      texto += `DESCUENTO: -${limpiarTexto(String(pedido.descuento))}\n`;
 
     texto += "-----------------------------\n";
     texto += "\x1B\x21\x30";
     texto += `TOTAL: ${limpiarTexto(String(pedido.total))} COLONES\n`;
     texto += "\x1B\x21\x00";
 
-    if (pedido.metodo_pago) texto += `PAGO: ${limpiarTexto(pedido.metodo_pago)}\n`;
+    if (pedido.metodo_pago)
+      texto += `PAGO: ${limpiarTexto(pedido.metodo_pago)}\n`;
 
     texto += "-----------------------------\n";
     texto += "\x1B\x61\x01";
     texto += "GRACIAS POR SU COMPRA\n";
-    texto += "\n\n\n\n";
+texto += "\x1B\x64\x06"; 
+texto += "\x1D\x56\x01";
 
     // Comando para abrir cash drawer (24V, 1A)
-const metodoPago = (pedido.metodo_pago || "")
-  .toString()
-  .trim()
-  .toLowerCase();
+    const metodoPago = (pedido.metodo_pago || "")
+      .toString()
+      .trim()
+      .toLowerCase();
 
-if (metodoPago === "efectivo") {
-  console.log("💵 Pago en efectivo → Abriendo caja");
-  texto += "\x1B\x70\x00\x19\xFA";
-} else {
-  console.log("💳 Pago no es efectivo → No se abre caja");
-}
+    if (metodoPago === "efectivo") {
+      console.log("💵 Pago en efectivo → Abriendo caja");
+      texto += "\x1B\x70\x00\x19\xFA";
+    } else {
+      console.log("💳 Pago no es efectivo → No se abre caja");
+    }
     console.log("📤 Enviando datos a la impresora...");
     client.write(texto, () => {
       console.log("✅ Factura enviada y caja abierta");
